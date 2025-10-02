@@ -1,0 +1,48 @@
+services:
+  zenoh:
+    image: eclipse/zenoh:latest  # Official Zenoh image; check for specific versions if needed
+    ports:
+      - "7447:7447/udp"  # Default Zenoh port (UDP for pub/sub); adjust if using TCP
+      - "7447:7447/tcp"
+    restart: unless-stopped  # Auto-restart on failure
+    # Add environment vars if needed, e.g., for Zenoh config: environment: - ZENOH_LOG=info
+
+  mongodb:
+    image: mongo:latest  # Official MongoDB image
+    ports:
+      - "27017:27017"  # Default MongoDB port
+    volumes:
+      - mongodb-data:/data/db  # Persist data across container restarts
+#   Set variables for mongodb access
+#    environment:
+#      MONGO_INITDB_ROOT_USERNAME: ${MYMONGONAME}  # Set credentials
+#      MONGO_INITDB_ROOT_PASSWORD: ${MYMONGOPASS}
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app  # Path to your Dockerfile
+      dockerfile: Dockerfile
+    image: rs-app:latest  # Tag for your custom image
+    ports:
+      - "8080:8080"  # Expose your app's port (match the EXPOSE in Dockerfile)
+#      - "27017:27017"
+#      - "7447:7447"
+    volumes:
+      - ./app/data:/app/data  # Mount host dirs for runtime data or logs
+    depends_on:
+      - zenoh  # Start after Zenoh
+      - mongodb  # Start after MongoDB
+    restart: unless-stopped
+    # Entry point is set in Dockerfile; override if needed: command: ["--flag"]
+
+volumes:
+  mongodb-data:  # Named volume for MongoDB persistence
+    driver: local # This line is not strictly needed as local is the default
+#    This tells Docker to use the local volume driver, which means the data will be stored on the host filesystem
+#    somewhere in Docker’s internal storage (by default under /var/lib/docker/volumes/ on Linux).
+
+# Define a shared network if services need to communicate
+networks:
+  default:
+    driver: bridge
